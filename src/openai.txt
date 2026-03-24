@@ -1,0 +1,56 @@
+                const client = new OpenAI({
+                    apiKey: process.env.OPENAI_API_KEY,
+                });
+
+                // Ask user for prompt
+                const userPrompt = await vscode.window.showInputBox({
+                    prompt: "Enter prompt to process SQL files",
+                    placeHolder: "e.g. Convert SQL to human-readable explanation"
+                });
+
+                if (!userPrompt) {
+                    vscode.window.showWarningMessage("No prompt provided");
+                    return;
+                }
+
+                const files = fs.readdirSync(inputDir);
+                let processedCount = 0;
+
+                for (const file of files) {
+                    if (file.endsWith('.sql')) {
+
+                        const srcPath = path.join(inputDir, file);
+                        const fileNameWithoutExt = path.parse(file).name;
+
+                        const content = fs.readFileSync(srcPath, 'utf-8');
+
+                        // 🔥 AI CALL
+                        const response = await client.chat.completions.create({
+                            model: "gpt-4o-mini",
+                            messages: [
+                                {
+                                    role: "system",
+                                    content: "You are a SQL processing assistant."
+                                },
+                                {
+                                    role: "user",
+                                    content: `${userPrompt}\n\nSQL:\n${content}`
+                                }
+                            ]
+                        });
+
+                        const aiOutput = response.choices[0].message?.content || "";
+
+                        // Save as processed file
+                        const outputFileName = fileNameWithoutExt + '_processed.txt';
+                        const destPath = path.join(outputDir, outputFileName);
+
+                        fs.writeFileSync(destPath, aiOutput, 'utf-8');
+
+                        processedCount++;
+                    }
+                }
+
+                vscode.window.showInformationMessage(
+                    `Processed ${processedCount} files with AI 🚀`
+                );
